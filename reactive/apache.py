@@ -46,7 +46,7 @@ def install_site(name, site):
     hookenv.status_set('maintenance', 'Installing %s' % name)
     templating.render(
         source='site',
-        target='/etc/apache2/sites-available/%s' % name,
+        target='/etc/apache2/sites-available/%s.conf' % name,
         context={
             'name': name,
             'site': site,
@@ -76,7 +76,8 @@ def strip_archive_dir(site_dir):
 @when('apache.start')
 @when_not('apache.started')
 def start_apache():
-    workload = yaml.load('apache.yaml')
+    with open('apache.yaml') as fp:
+        workload = yaml.safe_load(fp)
     for name, site in workload['sites'].items():
         check_call(['a2ensite', name])
     host.service_start('apache2')
