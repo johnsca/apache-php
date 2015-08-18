@@ -45,7 +45,7 @@ def install_site(name, site):
     strip_archive_dir(dest)
     hookenv.status_set('maintenance', 'Installing %s' % name)
     templating.render(
-        source='site',
+        source='site.conf',
         target='/etc/apache2/sites-available/%s.conf' % name,
         context={
             'name': name,
