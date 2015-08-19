@@ -65,12 +65,15 @@ def strip_archive_dir(site_dir):
     dir within the site dir and moves the contents up.
     """
     contents = os.listdir(site_dir)
-    if len(contents) == 1 and os.path.isdir(contents[0]):
-        tmp_src = os.path.join(site_dir, contents[0])
-        tmp_dest = os.path.join(os.path.dirname(site_dir), contents[0])
-        os.rename(tmp_src, tmp_dest)
-        os.rmdir(site_dir)
-        os.rename(tmp_dest, site_dir)
+    if len(contents) != 1:
+        return
+    subdir = os.path.join(site_dir, contents[0])
+    if not os.path.isdir(subdir):
+        return
+    tmp_dest = os.path.join(os.path.dirname(site_dir), contents[0])
+    os.rename(subdir, tmp_dest)
+    os.rmdir(site_dir)
+    os.rename(tmp_dest, site_dir)
 
 
 @when('apache.start')
