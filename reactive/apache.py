@@ -26,6 +26,22 @@ def install():
     reactive.set_state('apache.available')
 
 
+@hook('config-changed')
+def config_changed():
+    config = hookenv.config()
+    if not reactive.is_state('apache.available') or not config.changed('port'):
+        return
+    with open('apache.yaml') as fp:
+        workload = yaml.safe_load(fp)
+    for name, site in workload['sites'].items():
+        configure_site(name, site)
+    if reactive.is_state('apache.started'):
+        hookenv.close_port(config.previous('port'))
+        assert host.service_reload('apache2'), 'Failed to reload Apache'
+        hookenv.open_port(config['port'])
+    hookenv.status_set('maintenance', '')
+
+
 def install_packages(workload):
     config = hookenv.config()
     hookenv.status_set('maintenance', 'Installing packages')
@@ -38,12 +54,16 @@ def install_packages(workload):
 
 
 def install_site(name, site):
-    config = hookenv.config()
-    hookenv.status_set('maintenance', 'Downloading %s' % name)
+    hookenv.status_set('maintenance', 'Installing %s' % name)
     dest = '/var/www/%s' % name
     fetch.install_remote(dest=dest, **site['install_from'])
     strip_archive_dir(dest)
-    hookenv.status_set('maintenance', 'Installing %s' % name)
+    configure_site(name, site)
+
+
+def configure_site(name, site):
+    hookenv.status_set('maintenance', 'Configuring %s' % name)
+    config = hookenv.config()
     templating.render(
         source='site.conf',
         target='/etc/apache2/sites-available/%s.conf' % name,
@@ -51,7 +71,7 @@ def install_site(name, site):
             'name': name,
             'site': site,
             'port': config['port'],
-            'doc_root': dest,
+            'doc_root': '/var/www/%s' % name,
         },
     )
 
@@ -83,14 +103,14 @@ def start_apache():
         workload = yaml.safe_load(fp)
     for name, site in workload['sites'].items():
         check_call(['a2ensite', name])
-    host.service_start('apache2')
+    assert host.service_start('apache2'), 'Failed to start Apache2'
     reactive.set_state('apache.started')
 
 
 @when('apache.available', 'apache.started')
 @when_not('apache.start')
 def stop_apache():
-    host.service_stop('apache2')
+    assert host.service_stop('apache2'), 'Failed to stop Apache'
     reactive.remove_state('apache.started')
 
 
